@@ -22,6 +22,8 @@ app.use(bodyParser.json())
 // Set up middleware
 app.use(express.json());
 
+
+
 //Set up routes
 app.use('/api/clause', clauseRoutes);
 
