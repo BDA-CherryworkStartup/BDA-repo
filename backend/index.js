@@ -23,7 +23,6 @@ app.use(bodyParser.json())
 app.use(express.json());
 
 
-
 //Set up routes
 app.use('/api/clause', clauseRoutes);
 
