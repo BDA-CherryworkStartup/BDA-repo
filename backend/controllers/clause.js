@@ -6,16 +6,19 @@ const Version = require('../models/version');
 // API to Create a Clause
 const createClause = async (req, res) => {
   try{
-    const{ name, content, usedFor } = req.body;
-    const clause = new Clause({ name, usedFor });
+    const{ name, content, usedFor, description, image, title, signature } = req.body;
+    const clause = new Clause({ name, usedFor, description, image, title});
     const variant = new Variant({
       name: "Default",
       default: true,
-      content: content
+      content: content,
+      title: title,
+      description: description,
+      signature: signature
     });
 
     // Find all the dynamic parameter present in the content
-    const regex = /<<\$\$(.*?)\$\$>>/g;
+    const regex = /\$\$(.*?)\$\$/g;
     const result = content.match(regex);
     parameters =  []
     if(result!=null){
@@ -52,8 +55,12 @@ const getAllClause = async (req, res) => {
       result.push({
         id: clauseData._id,
         name: clauseData.name,
+        title: clauseData.title,
         usedFor: clauseData.usedFor,
-        status: clauseData.status
+        description: clauseData.description,
+        image: clauseData.image,
+        status: clauseData.status,
+        variantCount: clauseData.variant.length
       })
     })    
     console.log('All Clauses retrieved successfully');
@@ -74,13 +81,26 @@ const getAllVariantsFromAClause = async (req, res) => {
     await Promise.all(
       variantInfo.map(async (variantId) => {
         const variantData = await Variant.findById(variantId);
-        if(variantData.version.length>0){
-          const versionData = await Version.findById(variantData.version[variantData.version.length-1])
-          versionData.name = versionData.name + " of " + variantData.name;
-          variantResults.push(versionData)
-        }else{
-          variantResults.push(variantData)
-        }
+        // if(variantData.version.length>0){
+        //   const versionData = await Version.findById(variantData.version[variantData.version.length-1])
+        //   versionData.name = versionData.name + " of " + variantData.name;
+        //   variantResults.push(versionData)
+        // }else{
+        //   variantResults.push(variantData)
+        // }
+
+        variantResults.push({
+          variantId: variantData._id,
+          variantName: variantData.name,
+          variantTitle: variantData.title,
+          signature: variantData.signature,
+          description: variantData.description,
+          content: variantData.content,
+          parameters: variantData.parameters,
+          usedFor: clauseData.usedFor,
+          variantDefault: variantData.default,
+          versionCount: variantData.version.length
+        })
         
       })
     )
@@ -103,12 +123,19 @@ const getAllVersionsFromVariant = async(req, res) => {
     console.log(variantData);
     console.log("Variant Name: ", variantData.name);
     versionResult = []
+    versionResult.push({
+      "_id": variantData._id,
+      "name": variantData.name + " Variant",
+      "content": variantData.content,
+      "parameters": variantData.parameters,
+    })
     await Promise.all(
       variantData.version.map(async (versionId) => {
-        const versionData = await version.findById(versionId)
+        const versionData = await Version.findById(versionId)
         versionResult.push(versionData)
       })
     )
+    
     console.log('All Versions retrieved successfully');
     res.status(200).send({ message: 'Versions retrieved Successfully', versionResult });
   }catch(error){
@@ -150,13 +177,16 @@ const getAllClauseUnderCategory = async (req, res) => {
 //Create a new variant - get clause id
 const createVariant = async(req, res) => {
   try{
-    const { clauseId, content } = req.body;
+    const { clauseId, content, description, name, title, signature } = req.body;
     const clauseData = await Clause.findById(clauseId);
     const versionName = "Variant " + clauseData.variant.length;
     const newVariant = new Variant({
-      name: versionName,
+      name: name,
       content: content,
-      default: false
+      default: false,
+      description: description,
+      title: title,
+      signature: signature
     })
     const newVariantList = clauseData.variant;
     newVariantList.push(newVariant);
@@ -164,7 +194,7 @@ const createVariant = async(req, res) => {
     const updatedClause = { $set: {variant: newVariantList}};
 
     // Find all the dynamic parameter present in the content
-    const regex = /<<\$\$(.*?)\$\$>>/g;
+    const regex = /\$\$(.*?)\$\$/g;
     const result = content.match(regex);
     parameters =  []
     if(result!=null){
@@ -188,4 +218,49 @@ const createVariant = async(req, res) => {
   }
 } 
 
-module.exports = { createClause, getAllClause, getAllClauseUnderCategory, getAllVariantsFromAClause, getAllVersionsFromVariant, createVariant };
+// Update A variant i.e create a version 
+const createVersion = async (req, res) => {
+  try{
+    const {clauseId, variantId, content, name, signature, usedFor} = req.body;
+    const clauseData = await Clause.findById(clauseId);
+    const variantData = await Variant.findById(variantId);
+    const versionName = variantData.version.length + 1
+    const newVersion = new Version({
+      name: name,
+      versionNumber: versionName,
+      content: content,
+      usedFor: usedFor,
+      signature: signature
+    })
+
+    // Find all the dynamic parameter present in the content
+    const regex = /\$\$(.*?)\$\$/g;
+    const result = content.match(regex);
+    parameters =  []
+    if(result!=null){
+      result.forEach((parameter) =>  {
+        parameters.push({
+          name: parameter.substring(4,parameter.length-4),
+          value: ""
+        })
+      })
+    }
+
+    newVersion.parameters = parameters
+
+    const newVersionList = variantData.version;
+    newVersionList.push(newVersion);
+    const variantToBeUpdated = { _id: variantId};
+    const updatedVariant = { $set: {version: newVersionList}};
+
+    const resultVariant = await Variant.updateOne(variantToBeUpdated, updatedVariant);
+    const resultVersion = newVersion.save();
+    res.status(200).send({ message: 'Variant Updated Successfully', resultVersion });
+
+  }catch(error){
+    console.log(error);
+    res.status(500).send({ error: 'Unable to update variant' });
+  }
+}
+
+module.exports = { createVersion, createClause, getAllClause, getAllClauseUnderCategory, getAllVariantsFromAClause, getAllVersionsFromVariant, createVariant };

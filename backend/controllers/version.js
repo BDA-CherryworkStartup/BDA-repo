@@ -7,6 +7,7 @@ const createVersion= async (req,  res) => {
     try{
         const {clauseId, variantId, content, name} = req.body 
         const clauseData = await Clause.findById(clauseId)
+        console.log(clauseData);
         for(let i=0 ; i<clauseData.variant.length; i++){
             if(clauseData.variant[i].toString() === variantId ){
                 const variantss = await Variant.findById(variantId)
@@ -37,7 +38,7 @@ const createVersion= async (req,  res) => {
                   const updatedVariant = { $set: {version: newVersionList}};
                   
                   const resultVariant = await Variant.updateOne(variantToBeUpdated, updatedVariant);
-                  const resultVersion = newVersion.save();
+                  const resultVersion = await newVersion.save();
 
                  
 

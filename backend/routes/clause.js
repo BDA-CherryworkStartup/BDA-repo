@@ -1,15 +1,19 @@
 const express = require('express');
 const router = express.Router();
 
-const { createClause, getAllClause, getAllClauseUnderCategory, getAllVariantsFromAClause, getAllVersionsFromVariant, createVariant } = require('../controllers/clause')
-const {createVersion} = require('../controllers/version')
+const { createClause, createVersion, getAllClause, getAllClauseUnderCategory, getAllVariantsFromAClause, getAllVersionsFromVariant, createVariant } = require('../controllers/clause')
+// const {createVersion} = require('../controllers/version')
 // Create a Clause
 router.post('/', createClause);
 
 //Create a Version
 // router.post('/:clause_id/:variant_id', createVersion);
+
+
 // Get All Clause
 router.get('/', getAllClause);
+
+// Add A version
 router.post("/updateVersion", createVersion)
 
 // Create New Variant
